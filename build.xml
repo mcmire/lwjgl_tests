@@ -1,0 +1,31 @@
+<project name="lwjgl_tests" default="jar">
+  <target name="init">
+    <property name="sourceDir" value="src" />
+    <property name="libDir" value="lib" />
+    <property name="outputDir" value="build" />
+  </target>
+
+  <target name="clean" depends="init">
+    <delete dir="${outputDir}" />
+  </target>
+
+  <target name="prepare" depends="clean">
+    <mkdir dir="${outputDir}" />
+  </target>
+
+  <target name="compile" depends="prepare">
+    <javac srcdir="${sourceDir}" destdir="${outputDir}" classpath="${libDir}/jar/lwjgl.jar:${libDir}/jar/lwjgl_util.jar:${libDir}/jar/jinput.jar" verbose="true" />
+  </target>
+
+  <target name="jar" depends="compile">
+    <jar basedir="." destfile="lwjgl_tests.jar" includes="${outputDir}/**/*.class" />
+  </target>
+
+  <!--
+  <target name="run">
+    <java classname="lwjgl_tests" classpath="lwjgl_tests.jar" fork="true">
+      <sysproperty key="java.library.path" value="${libDir}/native/macosx" />
+    </java>
+  </target>
+  -->
+</project>
