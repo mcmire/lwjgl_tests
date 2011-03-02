@@ -1,31 +1,35 @@
-<project name="lwjgl_tests" default="jar">
-  <target name="init">
-    <property name="sourceDir" value="src" />
-    <property name="libDir" value="lib" />
-    <property name="outputDir" value="build" />
+<project name="lwjgl_tests" default="jar" basedir=".">
+  <property name="src.dir"     value="src" />
+  <property name="lib.dir"     value="lib" />
+  <property name="build.dir"   value="build" />
+  <property name="classes.dir" value="${build.dir}/classes" />
+  <property name="jar.dir"     value="${build.dir}/jar" />
+
+  <path id="classpath">
+    <fileset dir="${lib.dir}/jar" includes="lwjgl.jar,lwjgl_util.jar,jinput.jar" />
+  </path>
+
+  <target name="clean">
+    <delete dir="${build.dir}" />
   </target>
 
-  <target name="clean" depends="init">
-    <delete dir="${outputDir}" />
-  </target>
-
-  <target name="prepare" depends="clean">
-    <mkdir dir="${outputDir}" />
-  </target>
-
-  <target name="compile" depends="prepare">
-    <javac srcdir="${sourceDir}" destdir="${outputDir}" classpath="${libDir}/jar/lwjgl.jar:${libDir}/jar/lwjgl_util.jar:${libDir}/jar/jinput.jar" verbose="true" />
+  <target name="compile" depends="clean">
+    <mkdir dir="${classes.dir}" />
+    <javac srcdir="${src.dir}" destdir="${classes.dir}" classpathref="classpath" verbose="true" />
   </target>
 
   <target name="jar" depends="compile">
-    <jar basedir="." destfile="lwjgl_tests.jar" includes="${outputDir}/**/*.class" />
+    <mkdir dir="${jar.dir}" />
+    <jar basedir="${classes.dir}" destfile="${jar.dir}/${ant.project.name}.jar" />
   </target>
 
-  <!--
   <target name="run">
-    <java classname="lwjgl_tests" classpath="lwjgl_tests.jar" fork="true">
-      <sysproperty key="java.library.path" value="${libDir}/native/macosx" />
+    <java fork="true" classname="${classname}">
+      <classpath>
+        <path refid="classpath"/>
+        <path location="${jar.dir}/${ant.project.name}.jar"/>
+      </classpath>
+      <sysproperty key="java.library.path" value="${lib.dir}/native/macosx" />
     </java>
   </target>
-  -->
 </project>
