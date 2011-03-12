@@ -97,7 +97,7 @@ public class LWJGL_LightedScene {
         render();
 
         // Limit framerate to 30 fps
-        Display.sync(30);
+        //Display.sync(30);
       }
       else 
       {
@@ -119,20 +119,20 @@ public class LWJGL_LightedScene {
 
   private static void handleKeyboard() {
     if (Keyboard.isKeyDown(Keyboard.KEY_A)) {
-      cx += Math.sin(-cry + (Math.PI / 2));
-      cz += Math.cos(-cry + (Math.PI / 2));
+      cx += Math.sin(-cry + (Math.PI / 2)) / 2.0;
+      cz += Math.cos(-cry + (Math.PI / 2)) / 2.0;
     }
     if (Keyboard.isKeyDown(Keyboard.KEY_D)) {
-      cx -= Math.sin(-cry + (Math.PI / 2));
-      cz -= Math.cos(-cry + (Math.PI / 2));
+      cx -= Math.sin(-cry + (Math.PI / 2)) / 2.0;
+      cz -= Math.cos(-cry + (Math.PI / 2)) / 2.0;
     }
     if (Keyboard.isKeyDown(Keyboard.KEY_W)) {
-      cx += Math.sin(-cry);
-      cz += Math.cos(-cry);
+      cx += Math.sin(-cry) / 2.0;
+      cz += Math.cos(-cry) / 2.0;
     }
     if (Keyboard.isKeyDown(Keyboard.KEY_S)) {
-      cx -= Math.sin(-cry);
-      cz -= Math.cos(-cry);
+      cx -= Math.sin(-cry) / 2.0;
+      cz -= Math.cos(-cry) / 2.0;
     }
 
     while (Keyboard.next()) {
@@ -158,25 +158,22 @@ public class LWJGL_LightedScene {
   }
 
   private static void handleMouse() {
-    // mouseX: 0..windowWidth -> -pi..pi deg
-    // mouseY: 0..windowHeight -> pi/2..-pi/2 deg
-
     DisplayMode dm = Display.getDisplayMode();
     int ww = dm.getWidth();
     int wh = dm.getHeight();
 
-    // And because I fail math: Mapping x from (a..b) to (c..d) = x' = ((x-a)(d-c)/(b-a))+c
-    // since a is 0, that simplifies to: (x(d-c)/b)+c
-    // <https://groups.google.com/forum/#!topic/alt.math/sj4tTuXpxE0>
-    int mx = Mouse.getX();
-    cry = ((2 * Math.PI * mx) / ww) - Math.PI;
-    // Don't reverse this here, b/c it will reverse looking in the X direction
-    // and it will also screw with moving around since we use this for that, too
-    //cry = -cry;
+    double halfpi = Math.PI / 2;
 
-    int my = Mouse.getY();
-    crx = ((Math.PI * my) / wh) - (Math.PI / 2);
-    crx = -crx;
+    int mdx = Mouse.getDX();
+    cry += mdx / 90.0;
+
+    // Limit range in Y-rotation to basically 90° and -90°
+    // In other words, don't allow the camera to spin upside down
+    // (This isn't a plane game, although that would be cool ;))
+    int mdy = Mouse.getDY();
+    crx -= mdy / 90.0;
+    if (mdy < 0 && crx > halfpi) crx = halfpi;
+    else if (mdy > 0 && crx < -halfpi) crx = -halfpi;
 
     System.out.println("cry: " + cry);
     System.out.println("crx: " + crx);
