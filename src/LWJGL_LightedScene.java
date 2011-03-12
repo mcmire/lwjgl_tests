@@ -20,12 +20,12 @@ public class LWJGL_LightedScene {
 
   private static int polygonMode = GL_FILL;
 
-  private static double cx = 0.0d;
+  private static double cx = -0.0d;
   private static double cy = -2.0d;
   private static double cz = -20.0d;
 
-  private static double crx = 0.0d; // rotation along x axis
-  private static double cry = 0.0d; // rotation along y axis
+  private static double crx = 0.0d;
+  private static double cry = 0.0d;
 
   public static void main(String[] args) {
     try {
@@ -66,9 +66,11 @@ public class LWJGL_LightedScene {
 
     // Ensure correct display of polygons
     // TODO: What do these do??
+    /*
     glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
     glDepthMask(true);
+    */
 
     // Enable lighting
     glEnable(GL_LIGHTING);
@@ -93,8 +95,9 @@ public class LWJGL_LightedScene {
         handleMouse();
         logic();
         render();
-        // Limit the framerate.
-        //Display.sync(FRAMERATE);
+
+        // Limit framerate to 30 fps
+        Display.sync(30);
       }
       else 
       {
@@ -155,9 +158,6 @@ public class LWJGL_LightedScene {
   }
 
   private static void handleMouse() {
-    // Don't bother setting the camera if the window hasn't been put inside the window yet
-    if (!Mouse.isInsideWindow()) return;
-
     // mouseX: 0..windowWidth -> -pi..pi deg
     // mouseY: 0..windowHeight -> pi/2..-pi/2 deg
 
@@ -170,11 +170,16 @@ public class LWJGL_LightedScene {
     // <https://groups.google.com/forum/#!topic/alt.math/sj4tTuXpxE0>
     int mx = Mouse.getX();
     cry = ((2 * Math.PI * mx) / ww) - Math.PI;
+    // Don't reverse this here, b/c it will reverse looking in the X direction
+    // and it will also screw with moving around since we use this for that, too
     //cry = -cry;
 
     int my = Mouse.getY();
     crx = ((Math.PI * my) / wh) - (Math.PI / 2);
     crx = -crx;
+
+    System.out.println("cry: " + cry);
+    System.out.println("crx: " + crx);
   }
 
   private static void logic() {
@@ -194,6 +199,12 @@ public class LWJGL_LightedScene {
     glRotatef((float)crxd, 1.0f, 0.0f, 0.0f);
     glRotatef((float)cryd, 0.0f, 1.0f, 0.0f);
     glTranslatef((float)cx, (float)cy, (float)cz);
+
+    /*
+    glRotatef(20f, 0f, 1f, 0f);
+    glRotatef(20f, 1f, 0f, 0f);
+    glTranslatef(0f, -5f, -20f);
+    */
 
     // Add a light.
     float lightPosition[] = {0.0f, 5.0f, 10.0f, 1.0f};
@@ -219,40 +230,46 @@ public class LWJGL_LightedScene {
     // Draw a cube in the middle of the floor.
     glBegin(GL_QUADS);
       // Front face
-      glVertex3f(-1.0f, 2.0f, 0.0f);
-      glVertex3f(-1.0f, 0.0f, 0.0f);
-      glVertex3f(1.0f,  0.0f, 0.0f);
-      glVertex3f(1.0f,  2.0f, 0.0f);
+      float[] n = calculateNormal(
+        -1.0f, 2.0f, 1.0f,
+        -1.0f, 0.0f, 1.0f,
+        1.0f,  0.0f, 1.0f
+      );
+      glNormal3f(n[0], n[1], n[2]);
+      glVertex3f(-1.0f, 2.0f, 1.0f);
+      glVertex3f(-1.0f, 0.0f, 1.0f);
+      glVertex3f(1.0f,  0.0f, 1.0f);
+      glVertex3f(1.0f,  2.0f, 1.0f);
 
       // Back face
-      glVertex3f(-1.0f, 2.0f, 1.0f);
-      glVertex3f(-1.0f, 0.0f, 1.0f);
-      glVertex3f(1.0f,  0.0f, 1.0f);
-      glVertex3f(1.0f,  2.0f, 1.0f);
+      glVertex3f(1.0f,  2.0f, -1.0f);
+      glVertex3f(1.0f,  0.0f, -1.0f);
+      glVertex3f(-1.0f, 0.0f, -1.0f);
+      glVertex3f(-1.0f, 2.0f, -1.0f);
 
       // Top face
-      glVertex3f(-1.0f, 2.0f, 0.0f);
+      glVertex3f(-1.0f, 2.0f, -1.0f);
       glVertex3f(-1.0f, 2.0f, 1.0f);
       glVertex3f(1.0f,  2.0f, 1.0f);
-      glVertex3f(1.0f,  2.0f, 0.0f);
+      glVertex3f(1.0f,  2.0f, -1.0f);
 
       // Bottom face
-      glVertex3f(-1.0f, 0.0f, 0.0f);
       glVertex3f(-1.0f, 0.0f, 1.0f);
+      glVertex3f(-1.0f, 0.0f, -1.0f);
+      glVertex3f(1.0f,  0.0f, -1.0f);
       glVertex3f(1.0f,  0.0f, 1.0f);
-      glVertex3f(1.0f,  0.0f, 0.0f);
 
       // Left face
-      glVertex3f(-1.0f, 2.0f, 0.0f);
-      glVertex3f(-1.0f, 0.0f, 0.0f);
+      glVertex3f(-1.0f, 2.0f, -1.0f);
+      glVertex3f(-1.0f, 0.0f, -1.0f);
       glVertex3f(-1.0f, 0.0f, 1.0f);
       glVertex3f(-1.0f, 2.0f, 1.0f);
 
       // Right face
-      glVertex3f(1.0f, 2.0f, 0.0f);
-      glVertex3f(1.0f, 0.0f, 0.0f);
-      glVertex3f(1.0f, 0.0f, 1.0f);
       glVertex3f(1.0f, 2.0f, 1.0f);
+      glVertex3f(1.0f, 0.0f, 1.0f);
+      glVertex3f(1.0f, 0.0f, -1.0f);
+      glVertex3f(1.0f, 2.0f, -1.0f);
     glEnd();
   }
 
@@ -264,5 +281,35 @@ public class LWJGL_LightedScene {
     FloatBuffer fb = ByteBuffer.allocateDirect(floatarray.length * SIZE_FLOAT).order(ByteOrder.nativeOrder()).asFloatBuffer();
     fb.put(floatarray).flip();
     return fb;
+  }
+
+  private static float[] calculateNormal(
+    double v1x, double v1y, double v1z,
+    double v2x, double v2y, double v2z,
+    double v3x, double v3y, double v3z
+  ) {
+    // Calculate vectors
+    double r1x = v1x - v2x;
+    double r1y = v1y - v2y;
+    double r1z = v1z - v2z;
+
+    double r2x = v2x - v3x;
+    double r2y = v2y - v3y;
+    double r2z = v2z - v3z;
+
+    // Get cross product of vectors
+    double nx = (v1y * v2z) - (v1z * v2y);
+    double ny = (v1z * v2x) - (v1x * v2z);
+    double nz = (v1x * v2y) - (v1y * v2x);
+
+    // Normalise final vector
+    double len = Math.sqrt( (nx * nx) + (ny * ny) + (nz * nz) );
+
+    float[] r = new float[3];
+    r[0] = (float)(nx / len);
+    r[1] = (float)(ny / len);
+    r[2] = (float)(nz / len);
+
+    return r;
   }
 }
