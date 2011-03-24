@@ -6,8 +6,8 @@ import static org.lwjgl.util.glu.GLU.*;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 import org.lwjgl.Sys;
-import java.lang.Float;
 import java.nio.*;  // Native IO buffers: LWJGL uses these to efficiently exchange data with system memory
+import java.util.Arrays;
 
 public class LWJGL_LightedScene {
   public static final int SIZE_FLOAT = 4;
@@ -17,12 +17,15 @@ public class LWJGL_LightedScene {
   public static final String WINDOW_TITLE = "Static Sphere";
 
   private static final int FRAME_RATE = 30;
+  
+  private static final double TXN_FACTOR = 0.3;
+  private static final double RXN_FACTOR = 0.008;
 
   private static int polygonMode = GL_FILL;
 
-  private static double cx = -0.0d;
-  private static double cy = -2.0d;
-  private static double cz = -20.0d;
+  private static double cx = 0.0d;
+  private static double cy = 2.0d;
+  private static double cz = 20.0d;
 
   private static double crx = 0.0d;
   private static double cry = 0.0d;
@@ -43,17 +46,17 @@ public class LWJGL_LightedScene {
   private static void init() throws Exception {
     // This will throw an LWJGLException if the display mode cannot be set.
     Display.setDisplayMode(new DisplayMode(WINDOW_WIDTH, WINDOW_HEIGHT));
-
     Display.setTitle(WINDOW_TITLE);
-
     // Sync frame (only works on windows).
     Display.setVSyncEnabled(true);
-
     // This will throw an LWJGLException if the display context cannot be created.
     Display.create();
 
     // Hide the mouse cursor from inside the window.
     Mouse.setGrabbed(true);
+    // Put the mouse in the center of the window, so that the user is
+    // intuitively able to shift left and rotate left.
+    Mouse.setCursorPosition(WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2);
 
     // Set the projection matrix.
     glMatrixMode(GL_PROJECTION);
@@ -65,12 +68,7 @@ public class LWJGL_LightedScene {
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 
     // Ensure correct display of polygons
-    // TODO: What do these do??
-    /*
-    glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
-    glDepthMask(true);
-    */
 
     // Enable lighting
     glEnable(GL_LIGHTING);
@@ -118,22 +116,31 @@ public class LWJGL_LightedScene {
   }
 
   private static void handleKeyboard() {
+    /*
     if (Keyboard.isKeyDown(Keyboard.KEY_A)) {
-      cx += Math.sin(-cry + (Math.PI / 2)) / 2.0;
-      cz += Math.cos(-cry + (Math.PI / 2)) / 2.0;
+      cx -= TXN_FACTOR * Math.sin(-crx) * Math.sin(cry + (Math.PI / 2));
+      cz -= TXN_FACTOR * Math.cos(-crx);
+      cy -= TXN_FACTOR * Math.sin(-crx) * Math.cos(cry + (Math.PI / 2));
     }
     if (Keyboard.isKeyDown(Keyboard.KEY_D)) {
-      cx -= Math.sin(-cry + (Math.PI / 2)) / 2.0;
-      cz -= Math.cos(-cry + (Math.PI / 2)) / 2.0;
+      cx += TXN_FACTOR * Math.sin(-crx) * Math.sin(cry + (Math.PI / 2));
+      cz += TXN_FACTOR * Math.cos(-crx);
+      cy += TXN_FACTOR * Math.sin(-crx) * Math.cos(cry + (Math.PI / 2));
     }
+    */
     if (Keyboard.isKeyDown(Keyboard.KEY_W)) {
-      cx += Math.sin(-cry) / 2.0;
-      cz += Math.cos(-cry) / 2.0;
+      cx -= TXN_FACTOR * Math.sin(-crx) * Math.sin(cry);
+      cz -= TXN_FACTOR * Math.cos(-crx);
+      cy -= TXN_FACTOR * Math.sin(-crx) * Math.cos(cry);
     }
     if (Keyboard.isKeyDown(Keyboard.KEY_S)) {
-      cx -= Math.sin(-cry) / 2.0;
-      cz -= Math.cos(-cry) / 2.0;
+      cx += TXN_FACTOR * Math.sin(-crx) * Math.sin(cry);
+      cz += TXN_FACTOR * Math.cos(-crx);
+      cy += TXN_FACTOR * Math.sin(-crx) * Math.cos(cry);
     }
+    
+    System.out.println("cx: " + cx);
+    System.out.println("cy: " + cy);
 
     while (Keyboard.next()) {
       boolean keyDownEvent = Keyboard.getEventKeyState();
@@ -163,18 +170,25 @@ public class LWJGL_LightedScene {
     int wh = dm.getHeight();
 
     double halfpi = Math.PI / 2;
+    
+    // mdx > 0 when moving cursor right, mdx < 0 when moving cursor left
+    // mdy > 0 when moving cursor up, mdy < 0 when moving cursor down
 
+    // Looking left is +cry, looking right is -cry
     int mdx = Mouse.getDX();
-    cry += mdx / 90.0;
+    cry += RXN_FACTOR * -mdx;
 
+    // Looking up is +crx, looking down is -crx
+    int mdy = Mouse.getDY();
+    crx += RXN_FACTOR * mdy;
     // Limit range in Y-rotation to basically 90° and -90°
     // In other words, don't allow the camera to spin upside down
     // (This isn't a plane game, although that would be cool ;))
-    int mdy = Mouse.getDY();
-    crx -= mdy / 90.0;
-    if (mdy < 0 && crx > halfpi) crx = halfpi;
-    else if (mdy > 0 && crx < -halfpi) crx = -halfpi;
+    if (mdy > 0 && crx > halfpi) crx = halfpi;
+    else if (mdy < 0 && crx < -halfpi) crx = -halfpi;
 
+    System.out.println("mdx: " + mdx);
+    System.out.println("mdy: " + mdy);
     System.out.println("cry: " + cry);
     System.out.println("crx: " + crx);
   }
@@ -190,22 +204,34 @@ public class LWJGL_LightedScene {
     // Reset the modelview matrix.
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
+    
+    // glRotatef(-angle, 1f, 0f, 0f) <=> rotate game world down  = look up
+    // glRotatef(+angle, 1f, 0f, 0f) <=> rotate game world up    = look down
+    // glRotatef(-angle, 0f, 1f, 0f) <=> rotate game world right = look left
+    // glRotatef(+angle, 0f, 1f, 0f) <=> rotate game world left  = look right
+    // 
+    // glTranslate(+distance, 0f, 0f) <=> translate game world right = strafe left
+    // glTranslate(-distance, 0f, 0f) <=> translate game world left = strafe right
+    // 
+    // glTranslate(0f, +distance, 0f) <=> translate game world up = descend
+    // glTranslate(0f, -distance, 0f) <=> translate game world down = ascend
+    // 
+    // glTranslate(0f, 0f, +distance) <=> translate game world back = walk forward
+    // glTranslate(0f, 0f, -distance) <=> translate game world forward = walk backward
 
-    double crxd = Math.toDegrees(crx);
-    double cryd = Math.toDegrees(cry);
+    // Invert translation and rotation since we're moving the world, not the camera
+    double crxd = Math.toDegrees(-crx);
+    double cryd = Math.toDegrees(-cry);
     glRotatef((float)crxd, 1.0f, 0.0f, 0.0f);
     glRotatef((float)cryd, 0.0f, 1.0f, 0.0f);
-    glTranslatef((float)cx, (float)cy, (float)cz);
-
-    /*
-    glRotatef(20f, 0f, 1f, 0f);
-    glRotatef(20f, 1f, 0f, 0f);
-    glTranslatef(0f, -5f, -20f);
-    */
+    glTranslatef((float)-cx, (float)-cy, (float)-cz);
+    
+    //glRotatef((float)Math.PI/2, 1f, 0f, 0f);
+    //glTranslatef(0f, -3f, -20f);
 
     // Add a light.
-    float lightPosition[] = {0.0f, 5.0f, 10.0f, 1.0f};
-    float lightAmbience[] = {1.0f, 1.0f, 1.0f, 1.0f};   // white
+    float[] lightPosition = {0.0f, 5.0f, 10.0f, 1.0f};
+    float[] lightAmbience = {1.0f, 1.0f, 1.0f, 1.0f};   // white
     // <-- default values for diffuse and specular are 1.0f, 1.0f, 1.0f, 1.0f
     glLight(GL_LIGHT0, GL_POSITION, allocFloats(lightPosition));
     glLight(GL_LIGHT0, GL_AMBIENT, allocFloats(lightAmbience));
@@ -227,46 +253,56 @@ public class LWJGL_LightedScene {
     // Draw a cube in the middle of the floor.
     glBegin(GL_QUADS);
       // Front face
-      float[] n = calculateNormal(
-        -1.0f, 2.0f, 1.0f,
-        -1.0f, 0.0f, 1.0f,
-        1.0f,  0.0f, 1.0f
+      drawFace(
+        new float[] {-1.0f, 2.0f, 1.0f},
+        new float[] {-1.0f, 0.0f, 1.0f},
+        new float[] {1.0f,  0.0f, 1.0f},
+        new float[] {1.0f,  2.0f, 1.0f}
       );
-      glNormal3f(n[0], n[1], n[2]);
-      glVertex3f(-1.0f, 2.0f, 1.0f);
-      glVertex3f(-1.0f, 0.0f, 1.0f);
-      glVertex3f(1.0f,  0.0f, 1.0f);
-      glVertex3f(1.0f,  2.0f, 1.0f);
 
       // Back face
-      glVertex3f(1.0f,  2.0f, -1.0f);
-      glVertex3f(1.0f,  0.0f, -1.0f);
-      glVertex3f(-1.0f, 0.0f, -1.0f);
-      glVertex3f(-1.0f, 2.0f, -1.0f);
+      drawFace(
+        new float[] {1.0f,  2.0f, -1.0f},
+        new float[] {1.0f,  0.0f, -1.0f},
+        new float[] {-1.0f, 0.0f, -1.0f},
+        new float[] {-1.0f, 2.0f, -1.0f}
+      );
 
+      /*
       // Top face
-      glVertex3f(-1.0f, 2.0f, -1.0f);
-      glVertex3f(-1.0f, 2.0f, 1.0f);
-      glVertex3f(1.0f,  2.0f, 1.0f);
-      glVertex3f(1.0f,  2.0f, -1.0f);
+      drawFace(
+        new float[] {-1.0f, 2.0f, -1.0f},
+        new float[] {-1.0f, 2.0f, 1.0f},
+        new float[] {1.0f,  2.0f, 1.0f},
+        new float[] {1.0f,  2.0f, -1.0f}
+      );
+      */
 
+      /*
       // Bottom face
-      glVertex3f(-1.0f, 0.0f, 1.0f);
-      glVertex3f(-1.0f, 0.0f, -1.0f);
-      glVertex3f(1.0f,  0.0f, -1.0f);
-      glVertex3f(1.0f,  0.0f, 1.0f);
+      drawFace(
+        new float[] {-1.0f, 0.0f, 1.0f},
+        new float[] {-1.0f, 0.0f, -1.0f},
+        new float[] {1.0f,  0.0f, -1.0f},
+        new float[] {1.0f,  0.0f, 1.0f}
+      );
+      */
 
       // Left face
-      glVertex3f(-1.0f, 2.0f, -1.0f);
-      glVertex3f(-1.0f, 0.0f, -1.0f);
-      glVertex3f(-1.0f, 0.0f, 1.0f);
-      glVertex3f(-1.0f, 2.0f, 1.0f);
+      drawFace(
+        new float[] {-1.0f, 2.0f, -1.0f},
+        new float[] {-1.0f, 0.0f, -1.0f},
+        new float[] {-1.0f, 0.0f, 1.0f},
+        new float[] {-1.0f, 2.0f, 1.0f}
+      );
 
       // Right face
-      glVertex3f(1.0f, 2.0f, 1.0f);
-      glVertex3f(1.0f, 0.0f, 1.0f);
-      glVertex3f(1.0f, 0.0f, -1.0f);
-      glVertex3f(1.0f, 2.0f, -1.0f);
+      drawFace(
+        new float[] {1.0f, 2.0f, 1.0f},
+        new float[] {1.0f, 0.0f, 1.0f},
+        new float[] {1.0f, 0.0f, -1.0f},
+        new float[] {1.0f, 2.0f, -1.0f}
+      );
     glEnd();
   }
 
@@ -280,33 +316,57 @@ public class LWJGL_LightedScene {
     return fb;
   }
 
-  private static float[] calculateNormal(
-    double v1x, double v1y, double v1z,
-    double v2x, double v2y, double v2z,
-    double v3x, double v3y, double v3z
-  ) {
-    // Calculate vectors
-    double r1x = v1x - v2x;
-    double r1y = v1y - v2y;
-    double r1z = v1z - v2z;
+  private static float[] calculateNormal(float[] v1, float[] v2, float[] v3) {
+    // We need to calculate the cross product, since this will give us a
+    // perpendicular vector, which is the definition of a normal vector.
+    // Thing is, the cross product accepts two arguments, and assumes that those
+    // arguments are vectors which point in a direction perpendicular to the
+    // direction in which we want our normal vector to point. However, we have
+    // points which make up a plane, not vectors, and we have three of them.
+    //
+    // To fix this, we can simply treat our points as vectors and subtract the
+    // first (v1) and second (v2) point and second (v2) and third (v3) point to
+    // obtain two vectors. v2 will point to v1 along the edge from v1 to v2,
+    // and v3 will point to v2 along the edge from v2 to v3.
+    
+    float[] d1 = new float[3];
+    float[] d2 = new float[3];
+    
+    d1[0] = v1[0] - v2[0];
+    d1[1] = v1[1] - v2[1];
+    d1[2] = v1[2] - v2[2];
+    
+    d2[0] = v2[0] - v3[0];
+    d2[1] = v2[1] - v3[1];
+    d2[2] = v2[2] - v3[2];
 
-    double r2x = v2x - v3x;
-    double r2y = v2y - v3y;
-    double r2z = v2z - v3z;
+    // Now that we have two vectors, we can find their cross product.
+    // If the original points of the plane were specified in a counterclockwise
+    // direction, this will produce a vector which will point in the direction
+    // coming out of the plane.
 
-    // Get cross product of vectors
-    double nx = (v1y * v2z) - (v1z * v2y);
-    double ny = (v1z * v2x) - (v1x * v2z);
-    double nz = (v1x * v2y) - (v1y * v2x);
+    float[] x = new float[3];
+    x[0] = (d1[1] * d2[2]) - (d1[2] * d2[1]);
+    x[1] = (d1[2] * d2[0]) - (d1[0] * d2[2]);
+    x[2] = (d1[0] * d2[1]) - (d1[1] * d2[0]);
 
-    // Normalise final vector
-    double len = Math.sqrt( (nx * nx) + (ny * ny) + (nz * nz) );
-
+    // Finally, we have to normalize the vector we got from the cross product,
+    // because OpenGL expects a vector given to glNormalf to be a unit vector.
+    // We can do this by using the Pythagorean theorem to obtain the magnitude
+    // of the vector, then dividing each component of the vector by the magnitude.
+    
+    float len = (float)Math.sqrt((x[0] * x[0]) + (x[1] * x[1]) + (x[2] * x[2]));
     float[] r = new float[3];
-    r[0] = (float)(nx / len);
-    r[1] = (float)(ny / len);
-    r[2] = (float)(nz / len);
+    r[0] = x[0] / len;
+    r[1] = x[1] / len;
+    r[2] = x[2] / len;
 
     return r;
+  }
+  
+  private static void drawFace(float[]... vertices) {
+    float[] normal = calculateNormal(vertices[0], vertices[1], vertices[2]);
+    glNormal3f(normal[0], normal[1], normal[2]);
+    for (float[] v : vertices) glVertex3f(v[0], v[1], v[2]);
   }
 }
