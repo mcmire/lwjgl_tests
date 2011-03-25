@@ -23,12 +23,16 @@ public class LWJGL_LightedScene {
 
   private static int polygonMode = GL_FILL;
 
-  private static double cx = 0.0d;
-  private static double cy = 2.0d;
-  private static double cz = 20.0d;
+  private static double[] cpos = new double[] { 0.0d, 2.0d, 20.0d };
+  private static double[] crot = new double[] { 0.0d, 0.0d };
+  
+  private static double[] DEFAULT_MOVEMENT = new double[] { 0, 0, -0.5 };
 
-  private static double crx = 0.0d;
-  private static double cry = 0.0d;
+  private static double[] IDENTITY_MATRIX = new double[] {
+    1, 0, 0,
+    0, 1, 0,
+    0, 0, 1
+  };
 
   public static void main(String[] args) {
     try {
@@ -77,6 +81,8 @@ public class LWJGL_LightedScene {
 
   private static void mainLoop() {
     while (true) {
+      System.out.println(" ");
+      
       if (Keyboard.isKeyDown(Keyboard.KEY_ESCAPE) || Display.isCloseRequested()) {
         break;
       }
@@ -116,31 +122,43 @@ public class LWJGL_LightedScene {
   }
 
   private static void handleKeyboard() {
-    /*
+    // Calculate lookat vector from the two rotations using matrix multiplication.
+    //double[] lookat = mMulti(mMulti(DEFAULT_MOVEMENT, rotXMatrix(crot[0])), rotYMatrix(crot[1]));
+    double[] lookat = mMulti(DEFAULT_MOVEMENT, rotXYMatrix(crot[0], crot[1]));
+    
+    System.out.println("lookat: (" + lookat[0] + ", " + lookat[1] + ", " + lookat[2] + ")");
+    
+    // The left vector is always perpendicular to the Y axis.
+    // If the camera is pointed upward, for instance (i.e. the rotX value of the
+    // lookat vector is > 0), we don't want the left vector to be perpendicular
+    // to the lookat vector relative to an up vector of (0, 1, 0), because that
+    // would mean the left vector would basically rotate along the Z axis
+    // (from (1, 0, 0)), which is bad because we don't give a way to recover 
+    // from a roll rotation.
+    //
+    // Imagine that the camera is housed inside a sphere. The sphere can rotate
+    // upward and downward (which will affect its height moving forward and
+    // backward), but this does not change the fact that when the sphere moves
+    // left or right it does so perpendicular to the Y axis.
+    //
+    double[] left = mMulti(DEFAULT_MOVEMENT, rotYMatrix(crot[1] + (Math.PI / 2)));
+    
+    System.out.println("left: (" + left[0] + ", " + left[1] + ", " + left[2] + ")");
+    
     if (Keyboard.isKeyDown(Keyboard.KEY_A)) {
-      cx -= TXN_FACTOR * Math.sin(-crx) * Math.sin(cry + (Math.PI / 2));
-      cz -= TXN_FACTOR * Math.cos(-crx);
-      cy -= TXN_FACTOR * Math.sin(-crx) * Math.cos(cry + (Math.PI / 2));
+      cpos = vAdd(cpos, left);
     }
     if (Keyboard.isKeyDown(Keyboard.KEY_D)) {
-      cx += TXN_FACTOR * Math.sin(-crx) * Math.sin(cry + (Math.PI / 2));
-      cz += TXN_FACTOR * Math.cos(-crx);
-      cy += TXN_FACTOR * Math.sin(-crx) * Math.cos(cry + (Math.PI / 2));
+      cpos = vSubtract(cpos, left);
     }
-    */
     if (Keyboard.isKeyDown(Keyboard.KEY_W)) {
-      cx -= TXN_FACTOR * Math.sin(-crx) * Math.sin(cry);
-      cz -= TXN_FACTOR * Math.cos(-crx);
-      cy -= TXN_FACTOR * Math.sin(-crx) * Math.cos(cry);
+      cpos = vAdd(cpos, lookat);
     }
     if (Keyboard.isKeyDown(Keyboard.KEY_S)) {
-      cx += TXN_FACTOR * Math.sin(-crx) * Math.sin(cry);
-      cz += TXN_FACTOR * Math.cos(-crx);
-      cy += TXN_FACTOR * Math.sin(-crx) * Math.cos(cry);
+      cpos = vSubtract(cpos, lookat);
     }
     
-    System.out.println("cx: " + cx);
-    System.out.println("cy: " + cy);
+    System.out.println("cpos: (" + cpos[0] + ", " + cpos[1] + ", " + cpos[2] + ")");
 
     while (Keyboard.next()) {
       boolean keyDownEvent = Keyboard.getEventKeyState();
@@ -171,26 +189,26 @@ public class LWJGL_LightedScene {
 
     double halfpi = Math.PI / 2;
     
+    int[] md = new int[2];
+    
     // mdx > 0 when moving cursor right, mdx < 0 when moving cursor left
     // mdy > 0 when moving cursor up, mdy < 0 when moving cursor down
 
-    // Looking left is +cry, looking right is -cry
-    int mdx = Mouse.getDX();
-    cry += RXN_FACTOR * -mdx;
+    // Looking left is +crot[1], looking right is -crot[1]
+    md[0] = Mouse.getDX();
+    crot[1] += RXN_FACTOR * -md[0];
 
-    // Looking up is +crx, looking down is -crx
-    int mdy = Mouse.getDY();
-    crx += RXN_FACTOR * mdy;
+    // Looking up is +crot[0], looking down is -crot[0]
+    md[1] = Mouse.getDY();
+    crot[0] += RXN_FACTOR * md[1];
     // Limit range in Y-rotation to basically 90° and -90°
     // In other words, don't allow the camera to spin upside down
     // (This isn't a plane game, although that would be cool ;))
-    if (mdy > 0 && crx > halfpi) crx = halfpi;
-    else if (mdy < 0 && crx < -halfpi) crx = -halfpi;
+    if (md[1] > 0 && crot[0] > halfpi) crot[0] = halfpi;
+    else if (md[1] < 0 && crot[0] < -halfpi) crot[0] = -halfpi;
 
-    System.out.println("mdx: " + mdx);
-    System.out.println("mdy: " + mdy);
-    System.out.println("cry: " + cry);
-    System.out.println("crx: " + crx);
+    System.out.println("md: (" + md[0] + ", " + md[1] + ")");
+    System.out.println("crot: (" + crot[0] + ", " + crot[1] + ")");
   }
 
   private static void logic() {
@@ -220,11 +238,13 @@ public class LWJGL_LightedScene {
     // glTranslate(0f, 0f, -distance) <=> translate game world forward = walk backward
 
     // Invert translation and rotation since we're moving the world, not the camera
-    double crxd = Math.toDegrees(-crx);
-    double cryd = Math.toDegrees(-cry);
-    glRotatef((float)crxd, 1.0f, 0.0f, 0.0f);
-    glRotatef((float)cryd, 0.0f, 1.0f, 0.0f);
-    glTranslatef((float)-cx, (float)-cy, (float)-cz);
+    double[] crotd = new double[] {
+      Math.toDegrees(crot[0]),
+      Math.toDegrees(crot[1])
+    };
+    glRotatef((float)-crotd[0], 1.0f, 0.0f, 0.0f);
+    glRotatef((float)-crotd[1], 0.0f, 1.0f, 0.0f);
+    glTranslatef((float)-cpos[0], (float)-cpos[1], (float)-cpos[2]);
     
     //glRotatef((float)Math.PI/2, 1f, 0f, 0f);
     //glTranslatef(0f, -3f, -20f);
@@ -355,11 +375,7 @@ public class LWJGL_LightedScene {
     // We can do this by using the Pythagorean theorem to obtain the magnitude
     // of the vector, then dividing each component of the vector by the magnitude.
     
-    float len = (float)Math.sqrt((x[0] * x[0]) + (x[1] * x[1]) + (x[2] * x[2]));
-    float[] r = new float[3];
-    r[0] = x[0] / len;
-    r[1] = x[1] / len;
-    r[2] = x[2] / len;
+    float[] r = vNormalize(x);
 
     return r;
   }
@@ -368,5 +384,122 @@ public class LWJGL_LightedScene {
     float[] normal = calculateNormal(vertices[0], vertices[1], vertices[2]);
     glNormal3f(normal[0], normal[1], normal[2]);
     for (float[] v : vertices) glVertex3f(v[0], v[1], v[2]);
+  }
+  
+  public static double[] rotXMatrix(double rotx) {
+    double[] mat = new double[9];
+    mat[0] = 1;
+    mat[1] = 0;
+    mat[2] = 0;
+    mat[3] = 0;
+    mat[4] = Math.cos(rotx);
+    mat[5] = -Math.sin(rotx);
+    mat[6] = 0;
+    mat[7] = Math.sin(rotx);
+    mat[8] = Math.cos(rotx);
+    return mat;
+  }
+  
+  public static double[] rotYMatrix(double roty) {
+    double[] mat = new double[9];
+    mat[0] = Math.cos(roty);
+    mat[1] = 0;
+    mat[2] = Math.sin(roty);
+    mat[3] = 0;
+    mat[4] = 1;
+    mat[5] = 0;
+    mat[6] = -Math.sin(roty);
+    mat[7] = 0;
+    mat[8] = Math.cos(roty);
+    return mat;
+  }
+  
+  public static double[] rotZMatrix(double rotz) {
+    double[] mat = new double[9];
+    mat[0] = Math.cos(rotz);
+    mat[1] = -Math.sin(rotz);
+    mat[2] = 0;
+    mat[3] = Math.sin(rotz);
+    mat[4] = Math.cos(rotz);
+    mat[5] = 0;
+    mat[6] = 0;
+    mat[7] = 0;
+    mat[8] = 1;
+    return mat;
+  }
+  
+  public static double[] rotXYMatrix(double rotx, double roty) {
+    double[] mat = new double[9];
+    mat[0] = Math.cos(roty);
+    mat[1] = 0;
+    mat[2] = Math.sin(roty);
+    mat[3] = Math.sin(rotx) * Math.sin(roty);
+    mat[4] = Math.cos(rotx);
+    mat[5] = -Math.sin(rotx) * Math.cos(roty);
+    mat[6] = Math.cos(rotx) * -Math.sin(roty);
+    mat[7] = Math.sin(rotx);
+    mat[8] = Math.cos(rotx) * Math.cos(roty);
+    return mat;
+  }
+  
+  public static double[] mMulti(double[] vector, double[] matrix) {  
+    double[] matrix2 = new double[3];
+    matrix2[0] = matrix[0] * vector[0] +
+                 matrix[1] * vector[1] +
+                 matrix[2] * vector[2];
+    matrix2[1] = matrix[3] * vector[0] +
+                 matrix[4] * vector[1] +
+                 matrix[5] * vector[2];
+    matrix2[2] = matrix[6] * vector[0] +
+                 matrix[7] * vector[1] +
+                 matrix[8] * vector[2];
+    return matrix2;
+  }
+  
+  public static float[] vAdd(float[] v1, float[] v2) {
+    return new float[] {
+      v1[0] + v2[0],
+      v1[1] + v2[1],
+      v1[2] + v2[2]
+    };
+  }
+  public static double[] vAdd(double[] v1, double[] v2) {
+    return new double[] {
+      v1[0] + v2[0],
+      v1[1] + v2[1],
+      v1[2] + v2[2]
+    };
+  }
+  
+  public static float[] vSubtract(float[] v1, float[] v2) {
+    return new float[] {
+      v1[0] - v2[0],
+      v1[1] - v2[1],
+      v1[2] - v2[2]
+    };
+  }
+  public static double[] vSubtract(double[] v1, double[] v2) {
+    return new double[] {
+      v1[0] - v2[0],
+      v1[1] - v2[1],
+      v1[2] - v2[2]
+    };
+  }
+  
+  public static float[] vNormalize(float[] v) {
+    float len = (float)Math.sqrt((v[0] * v[0]) + (v[1] * v[1]) + (v[2] * v[2]));
+    return new float[] {
+      v[0] / len,
+      v[1] / len,
+      v[2] / len
+    };
+  }
+  public static double[] vNormalize(double[] v) {
+    double len = Math.sqrt((v[0] * v[0]) + (v[1] * v[1]) + (v[2] * v[2]));
+    return new double[] {
+      v[0] / len,
+      v[1] / len,
+      v[2] / len
+    };
   }
 }
